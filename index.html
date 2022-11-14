@@ -1,0 +1,161 @@
+<html>
+	<head>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+	</head>
+	<body id = "body">
+		<section id="content">
+			<form onsubmit="return false;" id = "form_cad">
+				SKU <input type="text" id = "sku" required/><br/>
+				Nome <input type="text" id = "name" required/><br/>
+				<hr/>
+				Descricao <textarea id = "description" rows="5" cols="50" required>
+							</textarea><br/>
+				Imagem principal <input type="url" id="main_image" required/><br/>
+				Imagens adicionais <input type="url" id="other_image" required/><br/>
+				Categorias ML > <select name="category" id="category" required>
+								</select><br/>
+				Estoque   <input type="number" min="0" id = "stock_number" required/><br/><br/>
+				Preço     <input type="text" id="price" required/><br/>
+				<input id = "product_id" type="hidden"/> 
+				<input type="submit"/>	
+			</form>
+		</section>
+
+		<hr/>
+
+		<table id="products" style="border: 1px;">
+			<thead>
+				<tr>
+					<th>SKU</th>
+					<th>Nome</th>
+					<th>Descricao</th>
+					<th>Imagem principal</th>
+					<th>Imagens adicionais</th>
+					<th>Categorias ML</th>
+					<th>Estoque</th>
+					<th>Preço</th>
+					<th>Editar</th>
+					<th>Remover</th>
+				</tr>
+			</thead>
+			<tbody id = "tbody">
+				
+			</tbody>
+		</table>
+	</body>
+	
+	<script>
+
+		let mercaoLibreAPI = "https://api.mercadolibre.com/sites/MLA/categories";
+
+		
+		let productServerEndpoint = "http://localhost:8000/api/products";
+
+		function registerProductResult (result) {
+			alert("Produto cadastrado com sucesso!")
+			loadProduct();
+		}
+
+		const loadMercadoLibreCategory = (mercadoLibreAPIResponse) => {
+			let arrayOfOptions = mercadoLibreAPIResponse.map(e => `<option value='${e["id"]}'>${e["name"]}</option>`);
+			$("#category").html(arrayOfOptions);
+		}
+
+		$(window).ready(() => {
+			$.getJSON(mercaoLibreAPI, loadMercadoLibreCategory);
+			loadProduct();
+		});
+
+		$("#form_cad").submit(() => {
+			let productId = $("#product_id").val()//""  || undefined  || null  || isNaN = nao eh um numero
+			let isCreating = productId == "" || productId === undefined || productId === null || isNaN(productId);
+			let json = {sku: $("#sku").val(),
+						name: $("#name").val(),
+						category: $("#category").val(),
+						description: $("#description").val(),
+						main_image: $("#main_image").val(),
+						other_image: $("#other_image").val(),
+						stock_number: $("#stock_number").val(),
+						price: $("#price").val()};
+			console.log(`submmiting ${JSON.stringify(json)}`)
+			if (isCreating) {
+				let promise = $.post(productServerEndpoint, json);
+				promise.done(registerProductResult);
+			}else {
+				console.log("Estarei editando um produto");
+				json["id"] = productId;
+				$.ajax({
+					url: `${productServerEndpoint}/${productId}`,
+					type: 'PUT',
+					data: json,
+					success: function(_result) {
+						alert("Produto editado com sucesso");
+						loadProduct();
+					}
+				})
+			}
+		});
+
+		const productDelete = (element) => {
+			$.ajax({
+				url: `${productServerEndpoint}/${element}`,
+				type: 'DELETE',
+				success: function(_result) {
+					loadProduct();
+				}
+			})
+		}
+
+		const productEdit = (element) => {
+			alert(element)
+			$.getJSON(`${productServerEndpoint}/${element}`, function(product) {
+				$("#sku").val(product.sku);
+				$("#name").val(product.name);
+				$("#category").val(product.category);
+				$("#description").val(product.description);
+				$("#main_image").val(product.main_image);
+				$("#other_image").val(product.other_image);
+				$("#stock_number").val(product.stock_number);
+				$("#price").val(product.price);
+				$("#product_id").val(product.id);
+			});
+		}
+
+		const clearFields = () => {
+			$("#sku").val("");
+			$("#name").val("");
+			$("#category").val("");
+			$("#description").val("");
+			$("#main_image").val("");	
+			$("#other_image").val("");
+			$("#stock_number").val("");
+			$("#price").val("");
+			$("#product_id").val("");
+		}
+
+		const loadTableWithProductList = (productResult) => {
+			let arrayOfTableLine = productResult.map(data => {
+				return `<tr>
+							<td>${data.sku}</td>
+							<td>${data.name}</td>
+							<td>${data.description}</td>
+							<td>${data.main_image}</td>
+							<td>${data.other_image}</td>
+							<td>${data.category}</td>
+							<td>${data.stock_number}</td>
+							<td>${data.price}</td>
+							<td><button type='button' 
+								onclick='productEdit("${data.id}");'>Editar</button></td>
+							<td><button type='button' 
+								onclick='productDelete("${data.id}");'>Remover</button></td>
+						</tr>`;
+			});
+			$("#tbody").html(arrayOfTableLine);
+		}
+
+		const loadProduct = () => {
+			clearFields()
+			$.getJSON(productServerEndpoint, loadTableWithProductList);
+		}
+	</script>
+</html>
